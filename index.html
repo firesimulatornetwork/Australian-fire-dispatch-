@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Australian Emergency Dispatch Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0d4b6e;
+            --primary-dark: #083553;
+            --primary-light: #1a6ea5;
+            --secondary: #ff9e1b;
+            --secondary-dark: #e5890c;
+            --accent: #e74c3c;
+            --accent-dark: #c0392b;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --gray: #7f8c8d;
+            --gray-light: #bdc3c7;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: var(--light);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        /* Device Detection Banner */
+        .device-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 3000;
+            display: none;
+        }
+        
+        /* Desktop Layout */
+        .desktop-ui {
+            display: block;
+        }
+        
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 80px 1fr 140px;
+            height: 100vh;
+            grid-template-areas:
+                "header header"
+                "sidebar map"
+                "resources map";
+            gap: 0;
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.2);
+            max-width: 1800px;
+            margin: 0 auto;
+            background: var(--primary-dark);
+        }
+        
+        /* Tablet Layout */
+        .tablet-ui {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Mobile Layout */
+        .mobile-ui {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Header Styles */
+        header {
+            grid-area: header;
+            background: rgba(13, 75, 110, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tablet-header, .mobile-header {
+            background: rgba(13, 75, 110, 0.95);
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            font-size: 2.2rem;
+            color: var(--secondary);
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .logo h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--secondary) 0%, #ffcb6b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .mobile-logo h1 {
+            font-size: 1.2rem;
+        }
+        
+        .stats {
+            display: flex;
+            margin-left: auto;
+            gap: 15px;
+        }
+        
+        .mobile-stats {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 10px 18px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .mobile-stat-item {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 8px 12px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 80px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.3rem;
+            color: var(--secondary);
+        }
+        
+        .mobile-stat-value {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--secondary);
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-light);
+            margin-top: 4px;
+        }
+        
+        .mobile-stat-label {
+            font-size: 0.65rem;
+            color: var(--gray-light);
+            margin-top: 2px;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            grid-area: sidebar;
+            background: rgba(13, 75, 110, 0.9);
+            padding: 25px;
+            overflow-y: auto;
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.15);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .tablet-sidebar {
+            background: rgba(13, 75, 110, 0.9);
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 40vh;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 18px;
+            color: var(--secondary);
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-light);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .tablet-section-title {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+        
+        .buildings-list, .vehicles-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .tablet-buildings-list, .tablet-vehicles-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .building-item, .vehicle-item {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .tablet-building-item, .tablet-vehicle-item {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            text-align: center;
+        }
+        
+        .building-item:hover, .vehicle-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            border-color: var(--primary-light);
+        }
+        
+        .item-info {
+            flex: 1;
+        }
+        
+        .item-name {
+            font-weight: bold;
+            color: var(--light);
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tablet-item-name {
+            font-weight: bold;
+            color: var(--light);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .item-cost {
+            color: var(--secondary);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .tablet-item-cost {
+            color: var(--secondary);
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        .item-action {
+            background: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .tablet-item-action {
+            background: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 8px;
+            width: 100%;
+            font-size: 0.9rem;
+        }
+        
+        .item-action:hover {
+            background: var(--secondary);
+            color: var(--primary-dark);
+        }
+        
+        /* Resources Panel */
+        .resources {
+            grid-area: resources;
+            background: rgba(13, 75, 110, 0.85);
+            padding: 20px 25px;
+            overflow-y: auto;
+            box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .tablet-resources, .mobile-resources {
+            background: rgba(13, 75, 110, 0.85);
+            padding: 15px 20px;
+            overflow-x: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .resource-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .tablet-resource-list, .mobile-resource-list {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-start;
+            flex-wrap: nowrap;
+        }
+        
+        .resource-item {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            min-width: 120px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .tablet-resource-item, .mobile-resource-item {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            min-width: 100px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+        
+        .resource-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.12);
+        }
+        
+        .resource-count {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--secondary);
+            margin-bottom: 5px;
+        }
+        
+        .tablet-resource-count, .mobile-resource-count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary);
+            margin-bottom: 5px;
+        }
+        
+        .resource-label {
+            font-size: 0.8rem;
+            color: var(--gray-light);
+        }
+        
+        .tablet-resource-label, .mobile-resource-label {
+            font-size: 0.7rem;
+            color: var(--gray-light);
+        }
+        
+        /* Map Container */
+        .map-container {
+            grid-area: map;
+            position: relative;
+            background: var(--primary);
+        }
+        
+        .tablet-map-container, .mobile-map-container {
+            position: relative;
+            background: var(--primary);
+            flex: 1;
+        }
+        
+        #map, #tablet-map, #mobile-map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Emergency Alert */
+        .emergency-alert {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: none;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: pulse 2s infinite;
+        }
+        
+        .tablet-emergency-alert, .mobile-emergency-alert {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            left: 15px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 10px 25px rgba(231, 76, 60, 0.4); }
+            50% { box-shadow: 0 10px 30px rgba(231, 76, 60, 0.7); }
+            100% { box-shadow: 0 10px 25px rgba(231, 76, 60, 0.4); }
+        }
+        
+        .alert-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .tablet-alert-title, .mobile-alert-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1rem;
+        }
+        
+        .dispatch-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            margin-top: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .tablet-dispatch-btn, .mobile-dispatch-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-top: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .dispatch-btn:hover {
+            background: #2ecc71;
+            transform: translateY(-2px);
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            background: rgba(13, 75, 110, 0.9);
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tablet-control-panel, .mobile-control-panel {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            background: rgba(13, 75, 110, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            justify-content: center;
+        }
+        
+        .control-btn {
+            background: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        
+        .tablet-control-btn, .mobile-control-btn {
+            background: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            flex: 1;
+            justify-content: center;
+        }
+        
+        .control-btn:hover {
+            background: var(--secondary);
+            color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .control-btn.primary {
+            background: var(--secondary);
+            color: var(--primary-dark);
+        }
+        
+        .control-btn.primary:hover {
+            background: var(--secondary-dark);
+        }
+        
+        /* Map Loading */
+        .map-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(13, 75, 110, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 999;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .tablet-map-loading, .mobile-map-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(13, 75, 110, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 999;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            width: 80%;
+        }
+        
+        /* Mobile Tabs */
+        .mobile-tabs {
+            display: flex;
+            background: rgba(13, 75, 110, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .mobile-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            color: var(--gray-light);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .mobile-tab.active {
+            color: var(--secondary);
+            border-bottom: 3px solid var(--secondary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .mobile-tab-content {
+            display: none;
+            padding: 20px;
+            overflow-y: auto;
+            background: rgba(13, 75, 110, 0.9);
+            flex: 1;
+        }
+        
+        .mobile-tab-content.active {
+            display: block;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-light);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
+        }
+        
+        /* Debug mode */
+        .debug-mode .device-info {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Device Detection Banner -->
+    <div class="device-info" id="device-info">
+        Device: <span id="device-type">Detecting...</span> | 
+        Width: <span id="screen-width">0</span>px
+    </div>
+
+    <!-- Desktop UI -->
+    <div class="desktop-ui">
+        <div class="app-container">
+            <header>
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-truck-medical"></i>
+                    </div>
+                    <h1>Emergency Dispatch Simulator</h1>
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value">$<span id="money">50,000</span></div>
+                        <div class="stat-label">BUDGET</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value"><span id="score">0</span></div>
+                        <div class="stat-label">SCORE</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value"><span id="population">0</span></div>
+                        <div class="stat-label">POPULATION</div>
+                    </div>
+                </div>
+            </header>
+            
+            <aside class="sidebar">
+                <div>
+                    <h2 class="section-title">
+                        <i class="fas fa-building"></i> EMERGENCY BUILDINGS
+                    </h2>
+                    <div class="buildings-list">
+                        <div class="building-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-fire"></i> Fire Station</div>
+                                <div class="item-cost">Cost: $15,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyBuilding('fire-station')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                        <div class="building-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-building-shield"></i> Police Station</div>
+                                <div class="item-cost">Cost: $18,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyBuilding('police-station')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                        <div class="building-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-truck-medical"></i> Ambulance Station</div>
+                                <div class="item-cost">Cost: $12,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyBuilding('ambulance-station')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                        <div class="building-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-headset"></i> Emergency Coordination Center</div>
+                                <div class="item-cost">Cost: $25,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyBuilding('ecc')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h2 class="section-title">
+                        <i class="fas fa-truck"></i> EMERGENCY VEHICLES
+                    </h2>
+                    <div class="vehicles-list">
+                        <div class="vehicle-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-fire-extinguisher"></i> Fire Truck</div>
+                                <div class="item-cost">Cost: $5,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyVehicle('fire-truck')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                        <div class="vehicle-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-car"></i> Police Car</div>
+                                <div class="item-cost">Cost: $4,000</div>
+                            </div>
+                            <button class="item-action" onclick="buyVehicle('police-car')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                        <div class="vehicle-item">
+                            <div class="item-info">
+                                <div class="item-name"><i class="fas fa-ambulance"></i> Ambulance</div>
+                                <div class="item-cost">Cost: $4,500</div>
+                            </div>
+                            <button class="item-action" onclick="buyVehicle('ambulance')">
+                                <i class="fas fa-shopping-cart"></i> Buy
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            
+            <div class="map-container">
+                <div id="map">
+                    <div class="map-loading" id="map-loading">
+                        <h3><i class="fas fa-spinner fa-spin"></i> Loading Map...</h3>
+                        <p>Please wait while we initialize the map</p>
+                    </div>
+                </div>
+                
+                <div class="emergency-alert" id="emergency-alert">
+                    <div class="alert-title">
+                        <i class="fas fa-exclamation-triangle"></i> EMERGENCY ALERT!
+                    </div>
+                    <div id="alert-details">Bushfire reported near residential area</div>
+                    <button class="dispatch-btn" onclick="dispatchUnits()">
+                        <i class="fas fa-paper-plane"></i> Dispatch Units
+                    </button>
+                </div>
+                
+                <div class="control-panel">
+                    <button class="control-btn" onclick="zoomToAustralia()">
+                        <i class="fas fa-search-location"></i> Zoom to Australia
+                    </button>
+                    <button class="control-btn primary" onclick="generateEmergency()">
+                        <i class="fas fa-bolt"></i> Generate Emergency
+                    </button>
+                </div>
+            </div>
+            
+            <div class="resources">
+                <h2 class="section-title">
+                    <i class="fas fa-chart-bar"></i> YOUR RESOURCES
+                </h2>
+                <div class="resource-list">
+                    <div class="resource-item">
+                        <div class="resource-count" id="fire-station-count">0</div>
+                        <div class="resource-label">FIRE STATIONS</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-count" id="police-station-count">0</div>
+                        <div class="resource-label">POLICE STATIONS</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-count" id="ambulance-station-count">0</div>
+                        <div class="resource-label">AMBULANCE STATIONS</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-count" id="fire-truck-count">0</div>
+                        <div class="resource-label">FIRE TRUCKS</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-count" id="police-car-count">0</div>
+                        <div class="resource-label">POLICE CARS</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-count" id="ambulance-count">0</div>
+                        <div class="resource-label">AMBULANCES</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablet UI -->
+    <div class="tablet-ui">
+        <div class="tablet-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-truck-medical"></i>
+                </div>
+                <h1>Dispatch Simulator</h1>
+            </div>
+        </div>
+        
+        <div class="tablet-sidebar">
+            <div>
+                <h2 class="section-title tablet-section-title">
+                    <i class="fas fa-building"></i> BUILDINGS & VEHICLES
+                </h2>
+                <div class="tablet-buildings-list">
+                    <div class="tablet-building-item">
+                        <div class="tablet-item-name"><i class="fas fa-fire"></i> Fire Station</div>
+                        <div class="tablet-item-cost">$15,000</div>
+                        <button class="tablet-item-action" onclick="buyBuilding('fire-station')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                    <div class="tablet-building-item">
+                        <div class="tablet-item-name"><i class="fas fa-building-shield"></i> Police Station</div>
+                        <div class="tablet-item-cost">$18,000</div>
+                        <button class="tablet-item-action" onclick="buyBuilding('police-station')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                    <div class="tablet-building-item">
+                        <div class="tablet-item-name"><i class="fas fa-truck-medical"></i> Ambulance Station</div>
+                        <div class="tablet-item-cost">$12,000</div>
+                        <button class="tablet-item-action" onclick="buyBuilding('ambulance-station')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                    <div class="tablet-building-item">
+                        <div class="tablet-item-name"><i class="fas fa-headset"></i> ECC</div>
+                        <div class="tablet-item-cost">$25,000</div>
+                        <button class="tablet-item-action" onclick="buyBuilding('ecc')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="tablet-vehicles-list" style="margin-top: 15px;">
+                    <div class="tablet-vehicle-item">
+                        <div class="tablet-item-name"><i class="fas fa-fire-extinguisher"></i> Fire Truck</div>
+                        <div class="tablet-item-cost">$5,000</div>
+                        <button class="tablet-item-action" onclick="buyVehicle('fire-truck')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                    <div class="tablet-vehicle-item">
+                        <div class="tablet-item-name"><i class="fas fa-car"></i> Police Car</div>
+                        <div class="tablet-item-cost">$4,000</div>
+                        <button class="tablet-item-action" onclick="buyVehicle('police-car')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                    <div class="tablet-vehicle-item">
+                        <div class="tablet-item-name"><i class="fas fa-ambulance"></i> Ambulance</div>
+                        <div class="tablet-item-cost">$4,500</div>
+                        <button class="tablet-item-action" onclick="buyVehicle('ambulance')">
+                            <i class="fas fa-shopping-cart"></i> Buy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tablet-map-container">
+            <div id="tablet-map">
+                <div class="tablet-map-loading" id="tablet-map-loading">
+                    <h3><i class="fas fa-spinner fa-spin"></i> Loading Map...</h3>
+                </div>
+            </div>
+            
+            <div class="tablet-emergency-alert" id="tablet-emergency-alert">
+                <div class="tablet-alert-title">
+                    <i class="fas fa-exclamation-triangle"></i> EMERGENCY ALERT!
+                </div>
+                <div id="tablet-alert-details">Bushfire reported near residential area</div>
+                <button class="tablet-dispatch-btn" onclick="dispatchUnits()">
+                    <i class="fas fa-paper-plane"></i> Dispatch Units
+                </button>
+            </div>
+            
+            <div class="tablet-control-panel">
+                <button class="tablet-control-btn" onclick="zoomToAustralia()">
+                    <i class="fas fa-search-location"></i> Zoom
+                </button>
+                <button class="tablet-control-btn primary" onclick="generateEmergency()">
+                    <i class="fas fa-bolt"></i> Emergency
+                </button>
+            </div>
+        </div>
+        
+        <div class="tablet-resources">
+            <div class="mobile-stats">
+                <div class="mobile-stat-item">
+                    <div class="mobile-stat-value">$<span id="tablet-money">50,000</span></div>
+                    <div class="mobile-stat-label">BUDGET</div>
+                </div>
+                <div class="mobile-stat-item">
+                    <div class="mobile-stat-value"><span id="tablet-score">0</span></div>
+                    <div class="mobile-stat-label">SCORE</div>
+                </div>
+                <div class="mobile-stat-item">
+                    <div class="mobile-stat-value"><span id="tablet-population">0</span></div>
+                    <div class="mobile-stat-label">POPULATION</div>
+                </div>
+            </div>
+            
+            <div class="tablet-resource-list">
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-fire-station-count">0</div>
+                    <div class="tablet-resource-label">FIRE STATIONS</div>
+                </div>
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-police-station-count">0</div>
+                    <div class="tablet-resource-label">POLICE STATIONS</div>
+                </div>
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-ambulance-station-count">0</div>
+                    <div class="tablet-resource-label">AMBULANCE STATIONS</div>
+                </div>
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-fire-truck-count">0</div>
+                    <div class="tablet-resource-label">FIRE TRUCKS</div>
+                </div>
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-police-car-count">0</div>
+                    <div class="tablet-resource-label">POLICE CARS</div>
+                </div>
+                <div class="tablet-resource-item">
+                    <div class="tablet-resource-count" id="tablet-ambulance-count">0</div>
+                    <div class="tablet-resource-label">AMBULANCES</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile UI -->
+    <div class="mobile-ui">
+        <div class="mobile-header">
+            <div class="logo mobile-logo">
+                <div class="logo-icon">
+                    <i class="fas fa-truck-medical"></i>
+                </div>
+                <h1>Dispatch Simulator</h1>
+            </div>
+        </div>
+        
+        <div class="mobile-stats">
+            <div class="mobile-stat-item">
+                <div class="mobile-stat-value">$<span id="mobile-money">50,000</span></div>
+                <div class="mobile-stat-label">BUDGET</div>
+            </div>
+            <div class="mobile-stat-item">
+                <div class="mobile-stat-value"><span id="mobile-score">0</span></div>
+                <div class="mobile-stat-label">SCORE</div>
+            </div>
+            <div class="mobile-stat-item">
+                <div class="mobile-stat-value"><span id="mobile-population">0</span></div>
+                <div class="mobile-stat-label">POPULATION</div>
+            </div>
+        </div>
+        
+        <div class="mobile-tabs">
+            <div class="mobile-tab active" data-tab="map">
+                <i class="fas fa-map"></i> Map
+            </div>
+            <div class="mobile-tab" data-tab="buildings">
+                <i class="fas fa-building"></i> Buildings
+            </div>
+            <div class="mobile-tab" data-tab="vehicles">
+                <i class="fas fa-truck"></i> Vehicles
+            </div>
+            <div class="mobile-tab" data-tab="resources">
+                <i class="fas fa-chart-bar"></i> Resources
+            </div>
+        </div>
+        
+        <div class="mobile-tab-content active" id="map-tab">
+            <div class="mobile-map-container">
+                <div id="mobile-map">
+                    <div class="mobile-map-loading" id="mobile-map-loading">
+                        <h3><i class="fas fa-spinner fa-spin"></i> Loading Map...</h3>
+                    </div>
+                </div>
+                
+                <div class="mobile-emergency-alert" id="mobile-emergency-alert">
+                    <div class="mobile-alert-title">
+                        <i class="fas fa-exclamation-triangle"></i> EMERGENCY!
+                    </div>
+                    <div id="mobile-alert-details">Bushfire reported</div>
+                    <button class="mobile-dispatch-btn" onclick="dispatchUnits()">
+                        <i class="fas fa-paper-plane"></i> Dispatch
+                    </button>
+                </div>
+                
+                <div class="mobile-control-panel">
+                    <button class="mobile-control-btn" onclick="zoomToAustralia()">
+                        <i class="fas fa-search-location"></i> Zoom
+                    </button>
+                    <button class="mobile-control-btn primary" onclick="generateEmergency()">
+                        <i class="fas fa-bolt"></i> Emergency
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mobile-tab-content" id="buildings-tab">
+            <h2 class="section-title tablet-section-title">
+                <i class="fas fa-building"></i> EMERGENCY BUILDINGS
+            </h2>
+            <div class="buildings-list">
+                <div class="building-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-fire"></i> Fire Station</div>
+                        <div class="item-cost">Cost: $15,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyBuilding('fire-station')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+                <div class="building-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-building-shield"></i> Police Station</div>
+                        <div class="item-cost">Cost: $18,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyBuilding('police-station')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+                <div class="building-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-truck-medical"></i> Ambulance Station</div>
+                        <div class="item-cost">Cost: $12,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyBuilding('ambulance-station')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+                <div class="building-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-headset"></i> Emergency Coordination Center</div>
+                        <div class="item-cost">Cost: $25,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyBuilding('ecc')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mobile-tab-content" id="vehicles-tab">
+            <h2 class="section-title tablet-section-title">
+                <i class="fas fa-truck"></i> EMERGENCY VEHICLES
+            </h2>
+            <div class="vehicles-list">
+                <div class="vehicle-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-fire-extinguisher"></i> Fire Truck</div>
+                        <div class="item-cost">Cost: $5,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyVehicle('fire-truck')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+                <div class="vehicle-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-car"></i> Police Car</div>
+                        <div class="item-cost">Cost: $4,000</div>
+                    </div>
+                    <button class="item-action" onclick="buyVehicle('police-car')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+                <div class="vehicle-item">
+                    <div class="item-info">
+                        <div class="item-name"><i class="fas fa-ambulance"></i> Ambulance</div>
+                        <div class="item-cost">Cost: $4,500</div>
+                    </div>
+                    <button class="item-action" onclick="buyVehicle('ambulance')">
+                        <i class="fas fa-shopping-cart"></i> Buy
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mobile-tab-content" id="resources-tab">
+            <h2 class="section-title tablet-section-title">
+                <i class="fas fa-chart-bar"></i> YOUR RESOURCES
+            </h2>
+            <div class="mobile-resource-list">
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-fire-station-count">0</div>
+                    <div class="mobile-resource-label">FIRE STATIONS</div>
+                </div>
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-police-station-count">0</div>
+                    <div class="mobile-resource-label">POLICE STATIONS</div>
+                </div>
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-ambulance-station-count">0</div>
+                    <div class="mobile-resource-label">AMBULANCE STATIONS</div>
+                </div>
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-fire-truck-count">0</div>
+                    <div class="mobile-resource-label">FIRE TRUCKS</div>
+                </div>
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-police-car-count">0</div>
+                    <div class="mobile-resource-label">POLICE CARS</div>
+                </div>
+                <div class="mobile-resource-item">
+                    <div class="mobile-resource-count" id="mobile-ambulance-count">0</div>
+                    <div class="mobile-resource-label">AMBULANCES</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize maps
+        let map, tabletMap, mobileMap;
+        let currentDeviceType = 'desktop';
+        
+        // Game state
+        const gameState = {
+            money: 50000,
+            score: 0,
+            population: 0,
+            buildings: {
+                'fire-station': { count: 0, cost: 15000 },
+                'police-station': { count: 0, cost: 18000 },
+                'ambulance-station': { count: 0, cost: 12000 },
+                'ecc': { count: 0, cost: 25000 }
+            },
+            vehicles: {
+                'fire-truck': { count: 0, cost: 5000 },
+                'police-car': { count: 0, cost: 4000 },
+                'ambulance': { count: 0, cost: 4500 }
+            },
+            markers: [],
+            activeEmergency: null
+        };
+        
+        // Initialize the application
+        function initApp() {
+            // Detect device type
+            detectDeviceType();
+            
+            // Initialize the appropriate UI
+            initUI();
+            
+            // Initialize the map
+            initMap();
+            
+            // Initialize the UI
+            updateUI();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Update device info
+            updateDeviceInfo();
+        }
+        
+        // Detect device type
+        function detectDeviceType() {
+            const width = window.innerWidth;
+            
+            if (width >= 1200) {
+                currentDeviceType = 'desktop';
+            } else if (width >= 768) {
+                currentDeviceType = 'tablet';
+            } else {
+                currentDeviceType = 'mobile';
+            }
+            
+            // Update device info display
+            document.getElementById('device-type').textContent = currentDeviceType;
+            document.getElementById('screen-width').textContent = width;
+            
+            console.log(`Device detected: ${currentDeviceType}, Width: ${width}px`);
+        }
+        
+        // Initialize UI based on device type
+        function initUI() {
+            // Hide all UIs first
+            document.querySelector('.desktop-ui').style.display = 'none';
+            document.querySelector('.tablet-ui').style.display = 'none';
+            document.querySelector('.mobile-ui').style.display = 'none';
+            
+            // Show the appropriate UI
+            if (currentDeviceType === 'desktop') {
+                document.querySelector('.desktop-ui').style.display = 'block';
+            } else if (currentDeviceType === 'tablet') {
+                document.querySelector('.tablet-ui').style.display = 'flex';
+            } else {
+                document.querySelector('.mobile-ui').style.display = 'flex';
+            }
+        }
+        
+        // Initialize map
+        function initMap() {
+            try {
+                // Initialize the appropriate map based on device
+                if (currentDeviceType === 'desktop') {
+                    map = L.map('map').setView([-25.2744, 133.7751], 5);
+                    initMapTiles(map);
+                    initCityMarkers(map);
+                    hideLoading('map-loading');
+                } else if (currentDeviceType === 'tablet') {
+                    tabletMap = L.map('tablet-map').setView([-25.2744, 133.7751], 5);
+                    initMapTiles(tabletMap);
+                    initCityMarkers(tabletMap);
+                    hideLoading('tablet-map-loading');
+                } else {
+                    mobileMap = L.map('mobile-map').setView([-25.2744, 133.7751], 5);
+                    initMapTiles(mobileMap);
+                    initCityMarkers(mobileMap);
+                    hideLoading('mobile-map-loading');
+                }
+                
+                // Trigger a resize event to ensure map renders correctly
+                setTimeout(() => {
+                    const currentMap = getCurrentMap();
+                    if (currentMap) {
+                        currentMap.invalidateSize();
+                    }
+                }, 300);
+            } catch (error) {
+                console.error("Error initializing map:", error);
+                hideLoading('map-loading');
+                hideLoading('tablet-map-loading');
+                hideLoading('mobile-map-loading');
+            }
+        }
+        
+        // Initialize map tiles
+        function initMapTiles(mapInstance) {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(mapInstance);
+        }
+        
+        // Initialize city markers
+        function initCityMarkers(mapInstance) {
+            const cities = [
+                { name: 'Sydney', lat: -33.8688, lng: 151.2093 },
+                { name: 'Melbourne', lat: -37.8136, lng: 144.9631 },
+                { name: 'Brisbane', lat: -27.4698, lng: 153.0251 },
+                { name: 'Perth', lat: -31.9505, lng: 115.8605 },
+                { name: 'Adelaide', lat: -34.9285, lng: 138.6007 },
+                { name: 'Darwin', lat: -12.4634, lng: 130.8456 },
+                { name: 'Hobart', lat: -42.8821, lng: 147.3272 },
+                { name: 'Canberra', lat: -35.2809, lng: 149.1300 }
+            ];
+            
+            cities.forEach(city => {
+                L.marker([city.lat, city.lng]).addTo(mapInstance)
+                    .bindPopup(city.name);
+            });
+        }
+        
+        // Hide loading indicator
+        function hideLoading(loadingId) {
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+            }
+        }
+        
+        // Get current map based on device
+        function getCurrentMap() {
+            if (currentDeviceType === 'desktop') {
+                return map;
+            } else if (currentDeviceType === 'tablet') {
+                return tabletMap;
+            } else {
+                return mobileMap;
+            }
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Window resize event
+            window.addEventListener('resize', function() {
+                detectDeviceType();
+                initUI();
+                initMap();
+                updateUI();
+                updateDeviceInfo();
+            });
+            
+            // Mobile tab switching
+            const mobileTabs = document.querySelectorAll('.mobile-tab');
+            mobileTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs
+                    mobileTabs.forEach(t => t.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    this.classList.add('active');
+                    
+                    // Hide all tab content
+                    document.querySelectorAll('.mobile-tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    
+                    // Show the selected tab content
+                    document.getElementById(`${tabName}-tab`).classList.add('active');
+                });
+            });
+            
+            // Debug mode - double click to show device info
+            let clickCount = 0;
+            document.addEventListener('click', function() {
+                clickCount++;
+                if (clickCount >= 3) {
+                    document.body.classList.toggle('debug-mode');
+                    clickCount = 0;
+                }
+                
+                setTimeout(() => {
+                    clickCount = 0;
+                }, 1000);
+            });
+        }
+        
+        // Update device info
+        function updateDeviceInfo() {
+            document.getElementById('screen-width').textContent = window.innerWidth;
+        }
+        
+        // Update UI with current game state
+        function updateUI() {
+            // Update desktop UI
+            const moneyElement = document.getElementById('money');
+            const scoreElement = document.getElementById('score');
+            const populationElement = document.getElementById('population');
+            
+            if (moneyElement) moneyElement.textContent = gameState.money.toLocaleString();
+            if (scoreElement) scoreElement.textContent = gameState.score.toLocaleString();
+            if (populationElement) populationElement.textContent = gameState.population.toLocaleString();
+            
+            // Update tablet UI
+            const tabletMoneyElement = document.getElementById('tablet-money');
+            const tabletScoreElement = document.getElementById('tablet-score');
+            const tabletPopulationElement = document.getElementById('tablet-population');
+            
+            if (tabletMoneyElement) tabletMoneyElement.textContent = gameState.money.toLocaleString();
+            if (tabletScoreElement) tabletScoreElement.textContent = gameState.score.toLocaleString();
+            if (tabletPopulationElement) tabletPopulationElement.textContent = gameState.population.toLocaleString();
+            
+            // Update mobile UI
+            const mobileMoneyElement = document.getElementById('mobile-money');
+            const mobileScoreElement = document.getElementById('mobile-score');
+            const mobilePopulationElement = document.getElementById('mobile-population');
+            
+            if (mobileMoneyElement) mobileMoneyElement.textContent = gameState.money.toLocaleString();
+            if (mobileScoreElement) mobileScoreElement.textContent = gameState.score.toLocaleString();
+            if (mobilePopulationElement) mobilePopulationElement.textContent = gameState.population.toLocaleString();
+            
+            // Update building counts
+            for (const building in gameState.buildings) {
+                const element = document.getElementById(`${building}-count`);
+                const tabletElement = document.getElementById(`tablet-${building}-count`);
+                const mobileElement = document.getElementById(`mobile-${building}-count`);
+                
+                if (element) element.textContent = gameState.buildings[building].count;
+                if (tabletElement) tabletElement.textContent = gameState.buildings[building].count;
+                if (mobileElement) mobileElement.textContent = gameState.buildings[building].count;
+            }
+            
+            // Update vehicle counts
+            for (const vehicle in gameState.vehicles) {
+                const element = document.getElementById(`${vehicle}-count`);
+                const tabletElement = document.getElementById(`tablet-${vehicle}-count`);
+                const mobileElement = document.getElementById(`mobile-${vehicle}-count`);
+                
+                if (element) element.textContent = gameState.vehicles[vehicle].count;
+                if (tabletElement) tabletElement.textContent = gameState.vehicles[vehicle].count;
+                if (mobileElement) mobileElement.textContent = gameState.vehicles[vehicle].count;
+            }
+        }
+        
+        // Buy a building
+        function buyBuilding(type) {
+            const building = gameState.buildings[type];
+            if (gameState.money >= building.cost) {
+                gameState.money -= building.cost;
+                building.count++;
+                
+                // Add a marker for the building
+                const lat = -25.2744 + (Math.random() * 10 - 5);
+                const lng = 133.7751 + (Math.random() * 10 - 5);
+                
+                let icon;
+                if (type === 'fire-station') {
+                    icon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    });
+                } else if (type === 'police-station') {
+                    icon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    });
+                } else {
+                    icon = L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    });
+                }
+                
+                const currentMap = getCurrentMap();
+                const marker = L.marker([lat, lng], { icon: icon }).addTo(currentMap)
+                    .bindPopup(type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+                
+                gameState.markers.push(marker);
+                gameState.population += Math.floor(Math.random() * 5000) + 5000;
+                gameState.score += 100;
+                
+                updateUI();
+            } else {
+                alert('Not enough money!');
+            }
+        }
+        
+        // Buy a vehicle
+        function buyVehicle(type) {
+            const vehicle = gameState.vehicles[type];
+            if (gameState.money >= vehicle.cost) {
+                gameState.money -= vehicle.cost;
+                vehicle.count++;
+                gameState.score += 50;
+                
+                updateUI();
+            } else {
+                alert('Not enough money!');
+            }
+        }
+        
+        // Generate an emergency
+        function generateEmergency() {
+            if (gameState.activeEmergency) return;
+            
+            const emergencies = [
+                { type: 'fire', name: 'Bushfire', description: 'Bushfire reported near residential area' },
+                { type: 'crime', name: 'Robbery', description: 'Robbery in progress at city bank' },
+                { type: 'medical', name: 'Mass Casualty', description: 'Multi-vehicle accident on highway' }
+            ];
+            
+            const emergency = emergencies[Math.floor(Math.random() * emergencies.length)];
+            
+            // Random location in Australia
+            const lat = -25.2744 + (Math.random() * 15 - 7.5);
+            const lng = 133.7751 + (Math.random() * 15 - 7.5);
+            
+            // Show alert based on device
+            if (currentDeviceType === 'desktop') {
+                const alert = document.getElementById('emergency-alert');
+                const alertDetails = document.getElementById('alert-details');
+                
+                if (alert && alertDetails) {
+                    alertDetails.textContent = emergency.description;
+                    alert.style.display = 'block';
+                }
+            } else if (currentDeviceType === 'tablet') {
+                const alert = document.getElementById('tablet-emergency-alert');
+                const alertDetails = document.getElementById('tablet-alert-details');
+                
+                if (alert && alertDetails) {
+                    alertDetails.textContent = emergency.description;
+                    alert.style.display = 'block';
+                }
+            } else {
+                const alert = document.getElementById('mobile-emergency-alert');
+                const alertDetails = document.getElementById('mobile-alert-details');
+                
+                if (alert && alertDetails) {
+                    alertDetails.textContent = emergency.description;
+                    alert.style.display = 'block';
+                    
+                    // Switch to map tab on mobile
+                    document.querySelectorAll('.mobile-tab').forEach(tab => tab.classList.remove('active'));
+                    document.querySelector('.mobile-tab[data-tab="map"]').classList.add('active');
+                    document.querySelectorAll('.mobile-tab-content').forEach(content => content.classList.remove('active'));
+                    document.getElementById('map-tab').classList.add('active');
+                }
+            }
+            
+            // Add emergency marker
+            const emergencyIcon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41]
+            });
+            
+            const currentMap = getCurrentMap();
+            const marker = L.marker([lat, lng], { icon: emergencyIcon }).addTo(currentMap)
+                .bindPopup(`🚨 ${emergency.name}`)
+                .openPopup();
+            
+            gameState.activeEmergency = {
+                type: emergency.type,
+                marker: marker,
+                resolved: false
+            };
+            
+            // Auto-hide alert after 30 seconds if not resolved
+            setTimeout(() => {
+                if (gameState.activeEmergency && !gameState.activeEmergency.resolved) {
+                    hideEmergencyAlert();
+                    gameState.score -= 200;
+                    currentMap.removeLayer(marker);
+                    gameState.activeEmergency = null;
+                    updateUI();
+                    alert('Emergency response failed! Score decreased.');
+                }
+            }, 30000);
+        }
+        
+        // Hide emergency alert
+        function hideEmergencyAlert() {
+            if (currentDeviceType === 'desktop') {
+                const alert = document.getElementById('emergency-alert');
+                if (alert) alert.style.display = 'none';
+            } else if (currentDeviceType === 'tablet') {
+                const alert = document.getElementById('tablet-emergency-alert');
+                if (alert) alert.style.display = 'none';
+            } else {
+                const alert = document.getElementById('mobile-emergency-alert');
+                if (alert) alert.style.display = 'none';
+            }
+        }
+        
+        // Dispatch units to emergency
+        function dispatchUnits() {
+            if (!gameState.activeEmergency) return;
+            
+            const emergency = gameState.activeEmergency;
+            let requiredVehicle = '';
+            let requiredCount = 0;
+            
+            if (emergency.type === 'fire') {
+                requiredVehicle = 'fire-truck';
+                requiredCount = 2;
+            } else if (emergency.type === 'crime') {
+                requiredVehicle = 'police-car';
+                requiredCount = 3;
+            } else if (emergency.type === 'medical') {
+                requiredVehicle = 'ambulance';
+                requiredCount = 2;
+            }
+            
+            if (gameState.vehicles[requiredVehicle].count >= requiredCount) {
+                // Success
+                hideEmergencyAlert();
+                
+                emergency.marker.setIcon(L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41]
+                }));
+                
+                emergency.resolved = true;
+                gameState.score += 300;
+                gameState.money += 10000;
+                gameState.population += 1000;
+                
+                updateUI();
+                
+                setTimeout(() => {
+                    const currentMap = getCurrentMap();
+                    currentMap.removeLayer(emergency.marker);
+                    gameState.activeEmergency = null;
+                }, 5000);
+            } else {
+                alert(`Not enough resources! You need ${requiredCount} ${requiredVehicle.replace('-', ' ')}s.`);
+            }
+        }
+        
+        // Zoom to show all of Australia
+        function zoomToAustralia() {
+            const currentMap = getCurrentMap();
+            currentMap.setView([-25.2744, 133.7751], 5);
+        }
+        
+        // Initialize the app when the page loads
+        window.onload = initApp;
+    </script>
+</body>
+</html>
