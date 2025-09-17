@@ -1,0 +1,134 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    color: #f0f0f0;
+    background-color: #333;
+}
+
+#map {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 300px;
+    height: calc(100vh - 20px);
+    background-color: rgba(44, 62, 80, 0.9);
+    border: 1px solid #34495e;
+    z-index: 2;
+    padding: 15px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+h1, h2 {
+    color: #ecf0f1;
+    text-align: center;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.stats p {
+    margin: 5px 0;
+}
+
+.actions button, .season-pass button, #toggleSettingsBtn, #applySettingsBtn, #resetProgressBtn {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.actions button:hover, .season-pass button:hover, #toggleSettingsBtn:hover, #applySettingsBtn:hover, #resetProgressBtn:hover {
+    background-color: #3498db;
+}
+
+.hidden {
+    display: none;
+}
+
+#settingsPanel {
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid #3498db;
+    border-radius: 5px;
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.setting-item {
+    margin-bottom: 10px;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 5px;
+    color: #ecf0f1;
+}
+
+.setting-item input {
+    width: calc(100% - 10px);
+    padding: 5px;
+    background-color: #2c3e50;
+    border: 1px solid #3498db;
+    color: white;
+    border-radius: 3px;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+#vehicleList li, #buildingList li, #missionList li {
+    padding: 8px;
+    border-bottom: 1px solid #34495e;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vehicle-item .status {
+    font-weight: bold;
+    color: #2ecc71;
+}
+
+#missionList button {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#missionList button:hover {
+    background-color: #c0392b;
+}
+
+.image-upload {
+    padding-top: 10px;
+    border-top: 2px solid #3498db;
+}
+
+.image-upload select, .image-upload input {
+    width: 100%;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
