@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Dispatch Simulator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="controls">
+        <h1>Dispatch HQ</h1>
+        <div class="stats">
+            <p>Funds: <span id="fundsDisplay">$1000</span></p>
+            <p>Vehicles: <span id="vehicleCount">0</span></p>
+            <p>Buildings: <span id="buildingCount">0</span></p>
+            <p>Rank: <span id="rankDisplay">Rookie</span></p>
+        </div>
+        <hr>
+        
+        <button id="toggleSettingsBtn">Settings</button>
+        
+        <div id="settingsPanel" class="hidden">
+            <h2>Game Settings</h2>
+            <div class="setting-item">
+                <label for="missionIntervalInput">Mission Interval (seconds):</label>
+                <input type="number" id="missionIntervalInput" value="60">
+            </div>
+            <div class="setting-item">
+                <label for="vehicleCostInput">Vehicle Cost:</label>
+                <input type="number" id="vehicleCostInput" value="500">
+            </div>
+            <div class="setting-item">
+                <label for="pumperCostInput">Heavy Pumper Cost:</label>
+                <input type="number" id="pumperCostInput" value="750">
+            </div>
+            <div class="setting-item">
+                <label for="ambulanceCostInput">Ambulance Cost:</label>
+                <input type="number" id="ambulanceCostInput" value="400">
+            </div>
+            <div class="setting-item">
+                <label for="paramedicCostInput">Paramedic Cost:</label>
+                <input type="number" id="paramedicCostInput" value="600">
+            </div>
+            <div class="setting-item">
+                <label for="micaSRECostInput">MICA SR Cost:</label>
+                <input type="number" id="micaSRECostInput" value="1000">
+            </div>
+            <div class="setting-item">
+                <label for="micaCourseCostInput">MICA Course Cost:</label>
+                <input type="number" id="micaCourseCostInput" value="500">
+            </div>
+            <button id="applySettingsBtn">Apply</button>
+            <button id="resetProgressBtn">Reset Progress</button>
+        </div>
+        <hr>
+
+        <div class="actions">
+            <h2>Buy</h2>
+            <button id="buyBuilding">Buy Fire Station ($200)</button>
+            <button id="buyAmbulanceStationBtn">Buy Ambulance Station ($250)</button>
+            <button id="buyParamedicTrainingCentreBtn">Buy Paramedic Training Centre ($300)</button>
+            <button id="buyVehicleBtn">Buy Fire Truck ($500)</button>
+            <button id="buyHeavyPumperBtn">Buy Heavy Pumper ($750)</button>
+            <button id="buyAmbulanceBtn">Buy Ambulance ($400)</button>
+            <button id="buyParamedicBtn">Buy Paramedic ($600)</button>
+            <button id="buyMicaSRBtn">Buy MICA Single Response ($1000)</button>
+        </div>
+        <hr>
+
+        <div class="image-upload">
+            <h2>Upload a Vehicle Image</h2>
+            <p>Choose a vehicle to customize:</p>
+            <select id="vehicleTypeSelect">
+                <option value="vehicle">Fire Truck</option>
+                <option value="heavyPumper">Heavy Pumper</option>
+                <option value="ambulance">Ambulance</option>
+                <option value="paramedic">Paramedic</option>
+                <option value="micaSR">MICA Single Response</option>
+            </select>
+            <input type="file" id="imageUpload" accept="image/*">
+        </div>
+        <hr>
+
+        <div class="season-pass">
+            <h2>Season Pass</h2>
+            <button id="buySeasonPass">Buy Season Pass ($5)</button>
+            <p>Progress: <span id="passProgress">0</span> / 10 missions</p>
+        </div>
+        <hr>
+
+        <div id="vehicles-list">
+            <h2>Vehicles</h2>
+            <ul id="vehicleList">
+                </ul>
+        </div>
+        <hr>
+
+        <div id="buildings-list">
+            <h2>Buildings</h2>
+            <ul id="buildingList">
+                </ul>
+        </div>
+        <hr>
+
+        <div class="missions">
+            <h2>Active Missions</h2>
+            <ul id="missionList">
+                </ul>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="settings.js"></script>
+    <script src="script.js"></script>
+    <script src="rank.js"></script>
+</body>
+</html>
