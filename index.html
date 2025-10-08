@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Australia Dispatch Simulator - Patch 2.4.0 (The Million Dollar Patch)</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <style>
+        /* --- SUMMER THEME CSS --- */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F0E68C; /* Summer: Khaki/Sand color */
+        }
+        #main-container {
+            display: flex;
+            height: 100vh;
+        }
+        #mapid {
+            flex-grow: 1;
+        }
+        #sidebar {
+            width: 300px;
+            background-color: #008080; /* Summer: Teal/Ocean color */
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        h1 {
+            color: #FFD700; /* Summer: Gold */
+            margin-top: 0;
+        }
+        .info-panel {
+            background-color: #006666; /* Darker Teal */
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .info-panel h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #009999;
+            padding-bottom: 5px;
+            color: #fff;
+        }
+        .button-group button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #FF4500; /* Summer: Orange-Red */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .button-group button:hover {
+            background-color: #CC3700;
+        }
+        .mission-log {
+            list-style-type: none;
+            padding: 0;
+            font-size: 14px;
+        }
+        .mission-log li {
+            background-color: #007070;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            user-select: none;
+        }
+        .mission-log li.vehicle-ready:hover {
+            background-color: #009090;
+            cursor: pointer;
+        }
+        .mission-log li.selected-vehicle {
+            border: 2px solid gold;
+            background-color: #004d99;
+        }
+        .rank-display {
+            font-weight: bold;
+            color: gold;
+        }
+        .double-money-alert {
+            padding: 10px;
+            background-color: #FFD700;
+            color: black;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            animation: pulse 1.5s infinite alternate; 
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.02); }
+        }
+        #bp-rewards-list button {
+            background-color: #00FF7F; /* Bright green for claim button */
+            color: black;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        #bp-rewards-list button:hover {
+            background-color: #00CD66;
+        }
+        /* --- NEW BONUS STYLES --- */
+        #million-bonus-panel {
+            background-color: #FFD700; /* Gold background */
+            color: #333;
+            text-align: center;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #million-bonus-panel h2 {
+             color: #333;
+             border-bottom: 2px solid #333;
+             padding-bottom: 5px;
+        }
+        #claim-bonus-button {
+            padding: 10px 15px;
+            font-weight: bold;
+            background-color: #008000; /* Dark Green */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        #claim-bonus-button:hover {
+            background-color: #006400;
+        }
+        #bonus-countdown {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #CC0000; /* Red for countdown */
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-container">
+        <div id="mapid"></div>
+
+        <div id="sidebar">
+            
+            <div class="double-money-alert" id="double-money-alert" style="display:none;">
+                🎉 **DOUBLE MONEY EVENT IS LIVE!** 🎉
+                <br>Time Remaining:
+                <span id="double-money-timer" style="color:red; font-size:16px;"></span>
+            </div>
+
+            <div class="info-panel">
+                <h2>🎯 Daily Challenges (v2.1.5)</h2>
+                <p style="font-size: 12px; border-bottom: 1px dashed white; padding-bottom: 5px;">
+                    Resets in: <span id="challenge-reset-timer" style="font-weight: bold; color: #FFD700;">Calculating...</span>
+                </p>
+                <ul id="challenges-list" class="mission-log" style="font-size: 14px; background-color: transparent;">
+                    </ul>
+            </div>
+            
+            <h1>Australia Dispatch</h1>
+            <div class="info-panel">
+                <h2>Game Status 📊</h2>
+                <p>Funds: $<span id="funds">10000</span></p>
+                <p>Rank: <span id="current-rank" class="rank-display">Trainee</span></p>
+                <p>Missions Completed: <span id="missions-completed">0</span></p>
+            </div>
+            
+            <div id="million-bonus-panel" style="display:none;">
+                <h2>⭐ Exclusive New Dispatcher Bonus!</h2>
+                <p id="bonus-message-text" style="font-size: 1.1em; font-weight: bold;">Loading bonus offer...</p>
+                <div id="bonus-countdown"></div>
+                <button id="claim-bonus-button" onclick="claimMillionBonus()">Claim $1,000,000 Now!</button>
+            </div>
+
+            <div class="info-panel">
+                <h2>Battle Pass 🌟</h2>
+                <p>Level: <span id="bp-level" class="rank-display">1</span> / 25</p>
+                <p>XP: <span id="bp-xp">0</span> / <span id="bp-xp-required">100</span></p>
+                <div id="bp-progress-bar" style="height: 10px; background-color: #333; margin-top: 5px;">
+                    <div id="bp-progress-fill" style="height: 100%; width: 0%; background-color: #FFD700; transition: width 0.3s;"></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <h3>Upcoming Rewards:</h3>
+                    <ul id="bp-rewards-list" class="mission-log" style="background-color: transparent;">
+                        </ul>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h2>Buy Assets 🛒</h2>
+                <div class="button-group">
+                    <button onclick="buyAsset('building', 5000, 'Fire Station')">Buy Fire Station ($5000)</button>
+                    <button onclick="buyAsset('vehicle', 2000, 'Fire Truck')">Buy Fire Truck ($2000)</button>
+                </div>
+                <div class="button-group" style="margin-top: 15px; border-top: 1px dashed #fff; padding-top: 15px;">
+                    <button onclick="buyAsset('building', 4000, 'Ambulance Station')" style="background-color: #1E90FF;">Buy Ambulance Station ($4000)</button>
+                    <button onclick="buyAsset('vehicle', 1500, 'Ambulance')" style="background-color: #4682B4;">Buy Ambulance ($1500)</button>
+                </div>
+                <div class="button-group" style="margin-top: 15px; border-top: 1px dashed #fff; padding-top: 15px;">
+                    <button onclick="buyAsset('building', 6000, 'Police Station')" style="background-color: #333333;">Buy Police Station ($6000)</button>
+                    <button onclick="buyAsset('vehicle', 2500, 'Patrol Car')" style="background-color: #008000;">Buy Patrol Car ($2500)</button>
+                </div>
+                <p style="font-size: 12px; margin-top: 10px;">*Vehicles must be purchased and placed near a Station.*</p>
+            </div>
+
+            <div class="info-panel">
+                <h2>My Assets 🚒🚑🚔</h2>
+                <ul id="assets-list" class="mission-log">
+                    </ul>
+                <p style="font-size: 12px;">*Click a **Ready** vehicle to select it for dispatch.*</p>
+            </div>
+
+            <div class="info-panel">
+                <h2>Sell Assets 💰</h2>
+                <p style="font-size: 12px;">Select an asset from the list below and click the **Sell** button to receive a **75% refund**.</p>
+                <div class="button-group">
+                    <button id="sell-asset-button" onclick="sellSelectedAsset()" style="background-color: #A52A2A; display: none;">Sell Selected Asset (0%)</button>
+                </div>
+                <ul id="sellable-assets-list" class="mission-log">
+                    </ul>
+            </div>
+            
+            <div class="info-panel">
+                <h2>Active Missions 🚨</h2>
+                <ul id="missions-list" class="mission-log">
+                    </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <script>
+        // --- CONSTANTS FOR NEW PLAYER BONUS ---
+        const BONUS_KEY = 'oneTimeMillionBonus';
+        const BONUS_AMOUNT = 1000000;
+        // 24 hours in milliseconds (24 * 60 * 60 * 1000)
+        const EXPIRY_TIME_MS = 86400000; 
+
+        // --- Event Management (Timed Double Money Event) ---
+        let DOUBLE_MONEY_END_TIME = 0; 
+        let IS_DOUBLE_MONEY_ACTIVE = false; 
+        // ---
+        
+        // --- Core Data: Battle Pass Rewards (FIXED) ---
+        const BATTLE_PASS_REWARDS = [
+            { level: 1, reward: { type: 'funds', amount: 500 }, description: '500 Funds' },
+            { level: 2, reward: { type: 'funds', amount: 1000 }, description: '1,000 Funds' },
+            { level: 3, reward: { type: 'funds', amount: 1500 }, description: '1,500 Funds' },
+            { level: 5, reward: { type: 'funds', amount: 2500 }, description: '2,500 Funds' },
+            { level: 10, reward: { type: 'funds', amount: 5000 }, description: '5,000 Funds (Mega Bonus!)' },
+            { level: 15, reward: { type: 'funds', amount: 7500 }, description: '7,500 Funds (Huge Bonus!)' },
+            { level: 20, reward: { type: 'funds', amount: 10000 }, description: '10,000 Funds (Epic Bonus!)' },
+            { level: 25, reward: { type: 'funds', amount: 25000 }, description: '25,000 Funds (Max Level Reward!)' }, 
+        ];
+        
+        // --- Core Data: Challenge Templates (NEW) ---
+        const CHALLENGE_TEMPLATES = [
+            { type: 'mission_count', target: 3, xpReward: 50, description: 'Complete 3 total Missions.' },
+            { type: 'station_count', target: 2, xpReward: 75, description: 'Dispatch from 2 different Stations.' },
+            { type: 'fire_mission', target: 1, xpReward: 60, description: 'Complete 1 Fire-related Mission.' },
+            { type: 'hvp_mission', target: 1, xpReward: 100, description: 'Complete 1 High-Risk HVP Mission.' }
+        ];
+
+
+        // --- Game State and Core Data ---
+        let game = {
+            funds: 10000,
+            missionsCompleted: 0,
+            currentRank: 'Trainee',
+            placingAsset: null,
+            ownedAssets: [],
+            activeMissions: [],
+            assetIdCounter: 0,
+            missionIdCounter: 0,
+            pendingMission: null, 
+            battlePass: { 
+                level: 1,
+                xp: 0,
+                xpToNextLevel: 100,
+                maxLevel: 25,
+                rewardsClaimed: [],
+                activeChallenges: [], 
+                lastChallengeReset: 0, 
+                usedStationsToday: [] 
+            },
+        };
+
+        let selectedVehicle = null; 
+        let selectedAssetToSell = null; 
+
+        // --- ASSET TYPES (v2.3.0 - Includes Custom Image Icons) ---
+        const ASSET_TYPES = {
+            'Fire Station': { cost: 5000, type: 'building', iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e8/Fire_station_icon.png', iconSize: [40, 40], specialties: [] },
+            'Fire Truck': { cost: 2000, type: 'vehicle', iconUrl: 'https://raw.githubusercontent.com/Concept211/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25, 41], specialties: ['Fire', 'Accident'] },
+            'Ambulance Station': { cost: 4000, type: 'building', iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Hospital_icon.svg/512px-Hospital_icon.svg.png', iconSize: [40, 40], specialties: [] },
+            'Ambulance': { cost: 1500, type: 'vehicle', iconUrl: 'https://raw.githubusercontent.com/Concept211/leaflet-color-markers/master/img/marker-icon-2x-blue.png', iconSize: [25, 41], specialties: ['Medical', 'Rescue', 'Accident'] },
+            'Police Station': { cost: 6000, type: 'building', iconUrl: 'https://cdn-icons-png.flaticon.com/512/3673/3673322.png', iconSize: [40, 40], specialties: [] },
+            'Patrol Car': { cost: 2500, type: 'vehicle', iconUrl: 'https://raw.githubusercontent.com/Concept211/leaflet-color-markers/master/img/marker-icon-2x-black.png', iconSize: [25, 41], specialties: ['Crime', 'Accident'] }
+        };
+
+        const RANKS = [
+            { name: 'Trainee', missions: 0 },
+            { name: 'Communications Officer', missions: 5 },       
+            { name: 'Senior Dispatcher', missions: 15 },
+            { name: 'Watch Commander', missions: 30 },            
+            { name: 'Chief Dispatch Coordinator', missions: 50 }, 
+            { name: 'Director of Operations', missions: 75 }      
+        ];
+
+        const HVP_AREA = {
+            minLat: -38.5, 
+            maxLat: -35.0,
+            minLon: 142.0,
+            maxLon: 146.5
+        };
+
+        // --- Map Initialization ---
+        const mymap = L.map('mapid').setView([-25.2744, 133.7751], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(mymap);
+
+
+        // --- UI Update Functions (REPLACED) ---
+        function updateUI() {
+            document.getElementById('funds').innerText = game.funds.toLocaleString(); // Use toLocaleString for $1M
+            document.getElementById('missions-completed').innerText = game.missionsCompleted;
+            document.getElementById('current-rank').innerText = game.currentRank;
+            
+            // --- My Assets List ---
+            const assetsList = document.getElementById('assets-list');
+            assetsList.innerHTML = '';
+            
+            // --- Asset Selling UI Update ---
+            const sellAssetsList = document.getElementById('sellable-assets-list');
+            sellAssetsList.innerHTML = '';
+            const sellButton = document.getElementById('sell-asset-button');
+            sellButton.style.display = 'none';
+            
+            game.ownedAssets.forEach(asset => {
+                // ... (Asset List building logic is unchanged) ...
+                // Build the main 'My Assets' list
+                const li = document.createElement('li');
+                let statusText = asset.status || 'Ready';
+                if (asset.type === 'vehicle') {
+                    if (statusText === 'Ready') statusText = 'Ready at Base';
+                    if (statusText === 'Dispatched') statusText = 'En Route to Mission...';
+                    if (statusText === 'On Scene') statusText = 'On Scene - Working';
+                    if (statusText === 'Traveling Home') statusText = 'Returning to Base...';
+                    if (statusText === 'No Base') statusText = 'ERROR: No Base';
+                } else {
+                    statusText = 'Base';
+                }
+                
+                let prefix = '';
+                if (game.pendingMission && asset.status === 'Ready') {
+                    const missionType = game.pendingMission.type;
+                    const specialties = ASSET_TYPES[asset.name].specialties || [];
+                    
+                    let isAppropriate = false;
+                    
+                    // Logic to check if any specialty matches the mission type
+                    if (specialties.some(s => {
+                        // Special handling for 'Accident' which is a common mission type
+                        if (s === 'Accident' && missionType.includes('Accident')) return true;
+                        // Check if mission type includes the specialty word (e.g., 'Fire' in 'Structure Fire')
+                        if (s !== 'Accident' && missionType.includes(s)) return true;
+                        // Special handling for Police-related missions and the 'Crime' specialty
+                        if (s === 'Crime' && (missionType.includes('Theft') || missionType.includes('Suspicious') || missionType.includes('Control'))) return true;
+                        return false;
+                    })) {
+                         prefix = '➡️ **DISPATCH:** ';
+                    } else {
+                        prefix = '';
+                    }
+
+                }
+
+                li.innerHTML = `${prefix} ${asset.name} (ID: ${asset.id}) - **${statusText}**`;
+                
+                // Vehicle selection logic for DISPATCH
+                if (asset.type === 'vehicle' && asset.status === 'Ready' && prefix.includes('DISPATCH')) {
+                    li.classList.add('vehicle-ready');
+                    
+                    if (game.pendingMission) {
+                        // FIX: We need to pass the missionData object from the activeMissions array, not the potentially stale game.pendingMission
+                        const missionToDispatch = game.activeMissions.find(m => m.id === game.pendingMission.id);
+                        li.onclick = () => {
+                            if (missionToDispatch) {
+                                dispatchVehicle(asset, missionToDispatch);
+                                game.pendingMission = null; 
+                                updateUI();
+                            }
+                        };
+                    } 
+                    
+                    if (selectedVehicle && selectedVehicle.id === asset.id) {
+                        li.classList.add('selected-vehicle');
+                    }
+                }
+                assetsList.appendChild(li);
+                
+                // Build the 'Sell Assets' list (NEW)
+                const sellLi = document.createElement('li');
+                const assetInfo = ASSET_TYPES[asset.name];
+                const refundAmount = Math.floor(assetInfo.cost * 0.75); // 75% refund
+                
+                sellLi.innerHTML = `${asset.name} (ID: ${asset.id}) - **Refund: $${refundAmount.toLocaleString()}**`;
+                sellLi.onclick = () => { selectAssetToSell(asset, refundAmount); };
+                sellLi.classList.add('vehicle-ready'); // Use existing hover class for selection
+                
+                if (selectedAssetToSell && selectedAssetToSell.id === asset.id) {
+                    sellLi.classList.add('selected-vehicle');
+                    sellButton.style.display = 'block';
+                    sellButton.innerText = `Sell ${asset.name} for $${refundAmount.toLocaleString()}`;
+                }
+                sellAssetsList.appendChild(sellLi);
+            });
+            
+            if (!selectedAssetToSell) {
+                 sellButton.style.display = 'none';
+            }
+
+
+            const missionsList = document.getElementById('missions-list');
+            missionsList.innerHTML = '';
+            game.activeMissions.forEach(mission => {
+                const li = document.createElement('li');
+                const displayReward = IS_DOUBLE_MONEY_ACTIVE ? mission.reward * 2 : mission.reward;
+                li.innerText = `${mission.type} ($${displayReward.toLocaleString()})`;
+                missionsList.appendChild(li);
+            });
+
+            // --- Battle Pass UI Update ---
+            const bp = game.battlePass;
+            const progressPercentage = (bp.xpToNextLevel === Infinity) ? 100 : (bp.xp / bp.xpToNextLevel) * 100;
+
+            document.getElementById('bp-level').innerText = bp.level;
+            document.getElementById('bp-xp').innerText = (bp.xpToNextLevel === Infinity) ? 'MAX' : bp.xp;
+            document.getElementById('bp-xp-required').innerText = (bp.xpToNextLevel === Infinity) ? 'MAX' : bp.xpToNextLevel;
+            document.getElementById('bp-progress-fill').style.width = `${progressPercentage}%`;
+
+            const rewardsList = document.getElementById('bp-rewards-list');
+            rewardsList.innerHTML = '';
+
+            const levelsToShow = 5; 
+            const relevantRewards = BATTLE_PASS_REWARDS
+                .filter(r => r.level >= bp.level || (r.level < bp.level && !bp.rewardsClaimed.includes(r.level)))
+                .sort((a, b) => a.level - b.level); 
+
+            let count = 0;
+            relevantRewards.forEach(reward => {
+                if (count >= levelsToShow && reward.level > bp.level) return;
+
+                const li = document.createElement('li');
+                let status;
+                
+                if (reward.level <= bp.level && !bp.rewardsClaimed.includes(reward.level)) {
+                    status = `<button onclick="claimReward(${reward.level})">Claim</button>`;
+                } else if (reward.level <= bp.level && bp.rewardsClaimed.includes(reward.level)) {
+                    status = 'Claimed ✅';
+                } else {
+                    status = 'Locked';
+                }
+                
+                li.innerHTML = `**Level ${reward.level}:** ${reward.description} - ${status}`;
+                rewardsList.appendChild(li);
+                if (reward.level >= bp.level) count++;
+            });
+            if (bp.level >= bp.maxLevel) {
+                 rewardsList.innerHTML = '<li>**MAX LEVEL REACHED!**</li>'
+            }
+            
+            // --- Daily Challenges UI Update ---
+            const challengesList = document.getElementById('challenges-list');
+            challengesList.innerHTML = '';
+
+            game.battlePass.activeChallenges.forEach(challenge => {
+                if (challenge.type) { // Ensure challenge is valid
+                    const li = document.createElement('li');
+                    let status = challenge.completed ? '✅ COMPLETE' : `(${challenge.progress}/${challenge.target})`;
+                    let color = challenge.completed ? 'style="color: #00FF7F; font-weight: bold;"' : '';
+                    
+                    li.innerHTML = `<span ${color}>${challenge.description}</span>: **+${challenge.xpReward} XP** ${status}`;
+                    challengesList.appendChild(li);
+                }
+            });
+
+            if (game.battlePass.activeChallenges.length === 0) {
+                challengesList.innerHTML = '<li>Loading challenges...</li>';
+            }
+        }
+        
+        // --- Custom localStorage with Expiry Functions (NEW) ---
+
+        /**
+         * Stores a value in localStorage with an associated expiration timestamp.
+         */
+        function setWithExpiry(key, value, ttl_ms) {
+            const now = new Date();
+            const item = {
+                value: value,
+                expiry: now.getTime() + ttl_ms,
+            };
+            localStorage.setItem(key, JSON.stringify(item));
+        }
+
+        /**
+         * Retrieves a value from localStorage, checks for expiry, and removes it if expired.
+         */
+        function getWithExpiry(key) {
+            const itemStr = localStorage.getItem(key);
+            if (!itemStr) { return null; }
+            
+            const item = JSON.parse(itemStr);
+            const now = new Date();
+            
+            if (now.getTime() > item.expiry) {
+                localStorage.removeItem(key);
+                return null;
+            }
+            return item.value;
+        }
+
+        // --- Million Dollar Bonus Logic (NEW) ---
+
+        function loadBonusLogic() {
+            const panel = document.getElementById('million-bonus-panel');
+            const messageEl = document.getElementById('bonus-message-text');
+            const countdownEl = document.getElementById('bonus-countdown');
+            const claimBtn = document.getElementById('claim-bonus-button');
+            
+            if (!panel) return;
+            
+            const playerStatus = getWithExpiry(BONUS_KEY);
+            
+            if (playerStatus && playerStatus.claimed === true) {
+                // Already claimed
+                panel.style.display = 'block';
+                panel.style.backgroundColor = '#90EE90'; // Light Green
+                messageEl.innerHTML = '✅ **Bonus Claimed!** Thank you for starting your career!';
+                countdownEl.innerHTML = '';
+                claimBtn.style.display = 'none';
+                return;
+            }
+
+            if (!playerStatus) {
+                // First time the player has loaded or the previous 24h expired.
+                setWithExpiry(BONUS_KEY, { claimed: false }, EXPIRY_TIME_MS);
+                
+                panel.style.display = 'block';
+                messageEl.innerHTML = `💵 **\$${BONUS_AMOUNT.toLocaleString()}** - Claim this massive starter bonus!`;
+                claimBtn.style.display = 'block';
+                startBonusTimer();
+            } else if (playerStatus.claimed === false) {
+                // Player is within the 24-hour window
+                panel.style.display = 'block';
+                messageEl.innerHTML = `💵 **\$${BONUS_AMOUNT.toLocaleString()}** - Claim this massive starter bonus!`;
+                claimBtn.style.display = 'block';
+                startBonusTimer();
+            } else {
+                // The bonus expired and was cleaned up (getWithExpiry returned null)
+                panel.style.display = 'none';
+            }
+        }
+
+        function claimMillionBonus() {
+            const playerStatus = getWithExpiry(BONUS_KEY);
+            const panel = document.getElementById('million-bonus-panel');
+            const messageEl = document.getElementById('bonus-message-text');
+            const countdownEl = document.getElementById('bonus-countdown');
+            const claimBtn = document.getElementById('claim-bonus-button');
+            
+            if (playerStatus && playerStatus.claimed === false) {
+                // 1. Credit Funds
+                game.funds += BONUS_AMOUNT;
+                
+                // 2. Update the local storage status to 'claimed' (persistently)
+                // Set a long expiry so they don't get the offer again even after a year
+                setWithExpiry(BONUS_KEY, { claimed: true }, 365 * EXPIRY_TIME_MS);
+                
+                // 3. Update UI
+                panel.style.backgroundColor = '#90EE90'; 
+                messageEl.innerHTML = `🎉 **SUCCESS!** \$${BONUS_AMOUNT.toLocaleString()} credited to your account!`;
+                countdownEl.innerHTML = '';
+                claimBtn.style.display = 'none';
+                
+                alert(`BONUS CLAIMED: You have received a one-time bonus of $${BONUS_AMOUNT.toLocaleString()}!`);
+                updateUI();
+                saveGame();
+            } else {
+                alert("Error: Bonus either already claimed or offer has expired.");
+                loadBonusLogic();
+            }
+        }
+
+        function startBonusTimer() {
+            const countdownEl = document.getElementById('bonus-countdown');
+            const storedItem = localStorage.getItem(BONUS_KEY);
+            if (!countdownEl || !storedItem) return;
+
+            const expiryTime = JSON.parse(storedItem).expiry;
+
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const distance = expiryTime - now;
+
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    countdownEl.innerHTML = 'OFFER EXPIRED!';
+                    document.getElementById('claim-bonus-button').style.display = 'none';
+                    return;
+                }
+
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownEl.textContent = `Time left to claim: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            };
+
+            updateTimer();
+            const countdownInterval = setInterval(updateTimer, 1000);
+        }
+        
+        // --- Movement Logic ---
+        function moveMarker(marker, startLatLng, endLatLng, durationMS, onComplete) {
+            let startTime = null;
+            const distanceLat = endLatLng.lat - startLatLng.lat;
+            const distanceLng = endLatLng.lng - startLatLng.lng;
+
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+                const progress = timestamp - startTime;
+                const percentage = progress / durationMS;
+
+                if (percentage < 1) {
+                    const newLat = startLatLng.lat + distanceLat * percentage;
+                    const newLng = startLatLng.lng + distanceLng * percentage;
+                    marker.setLatLng([newLat, newLng]);
+                    requestAnimationFrame(animate);
+                } else {
+                    marker.setLatLng(endLatLng);
+                    if (onComplete) onComplete();
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // --- Dispatch Logic ---
+        function dispatchVehicle(vehicle, mission) {
+            // Find home station location
+            const homeStation = game.ownedAssets.find(a => a.id === vehicle.homeStationId);
+            if (!homeStation) {
+                alert('Error: Vehicle has no assigned home station. Cannot dispatch.');
+                vehicle.status = 'Ready'; 
+                updateUI();
+                return;
+            }
+            
+            // Ensure the mission marker still exists before dispatching
+            if (!mission.marker) {
+                 alert('Error: Mission marker data is corrupt. Cannot dispatch.');
+                 return;
+            }
+
+            const missionLatLng = L.latLng(mission.location);
+            const homeLatLng = L.latLng(homeStation.location);
+            const vehicleStartLatLng = vehicle.marker.getLatLng();
+
+            // Status and timing
+            const travelDurationMS = 5000; // 5 seconds to travel
+            const missionWorkDurationMS = 5000; // 5 seconds on scene
+
+            // --- PHASE 1: TRAVEL TO MISSION ---
+            vehicle.status = 'Dispatched';
+            vehicle.marker.bindPopup(`**${vehicle.name}** - En Route to ${mission.type}`).openPopup(); 
+            updateUI(); 
+
+            moveMarker(vehicle.marker, vehicleStartLatLng, missionLatLng, travelDurationMS, () => {
+                // Vehicle arrived at mission
+                vehicle.status = 'On Scene';
+                vehicle.marker.setPopupContent(`**${vehicle.name}** - On Scene at ${mission.type}`);
+                updateUI();
+
+                // --- PHASE 2: MISSION WORK ---
+                setTimeout(() => {
+                    // Mission work complete, reward granted
+                    completeMission(mission, vehicle); 
+
+                    // --- PHASE 3: TRAVEL BACK HOME ---
+                    vehicle.status = 'Traveling Home';
+                    vehicle.marker.setPopupContent(`**${vehicle.name}** - Returning to Base`);
+                    updateUI();
+                    
+                    moveMarker(vehicle.marker, missionLatLng, homeLatLng, travelDurationMS, () => {
+                        // Vehicle arrived home
+                        vehicle.status = 'Ready';
+                        vehicle.marker.setLatLng(homeLatLng);
+                        vehicle.location = homeLatLng; // Update stored location
+                        
+                        // FIX: Reset popup content and close it correctly to ensure readiness
+                        vehicle.marker.setPopupContent(`${vehicle.name} - Ready at Base`);
+                        vehicle.marker.closePopup(); 
+                        updateUI();
+                        saveGame(); // Save state after vehicle returns
+                    });
+
+                }, missionWorkDurationMS); 
+            });
+        }
+
+        // --- Purchase and Placement Logic (Updated for Police and Vehicle Snap Fix) ---
+        function buyAsset(assetType, cost, name) {
+            if (assetType === 'vehicle') {
+                let requiredStationName = '';
+                if (name.includes('Fire')) {
+                    requiredStationName = 'Fire Station';
+                } else if (name.includes('Ambulance')) {
+                    requiredStationName = 'Ambulance Station';
+                } else if (name.includes('Patrol')) {
+                    requiredStationName = 'Police Station';
+                }
+                
+                if (!game.ownedAssets.some(a => a.name === requiredStationName)) {
+                    alert(`You must own an ${requiredStationName} before you can buy an ${name}!`);
+                    return;
+                }
+            }
+            if (game.placingAsset) {
+                alert(`You are already placing a ${game.placingAsset.name}. Click on the map first!`);
+                return;
+            }
+            if (game.funds >= cost) {
+                game.funds -= cost;
+                game.placingAsset = { name: name, type: assetType, cost: cost };
+                alert(`Click on the map to place your new ${name}.`);
+                updateUI();
+            } else {
+                alert('Not enough funds!');
+            }
+        }
+
+        function placeAssetOnMap(latlng) {
+            let homeStationId = null;
+            let startLocation = latlng; // Default starting location is the clicked point
+
+            if (game.placingAsset.type === 'vehicle') {
+                let requiredStationName;
+                if (game.placingAsset.name.includes('Fire')) {
+                    requiredStationName = 'Fire Station';
+                } else if (game.placingAsset.name.includes('Ambulance')) {
+                    requiredStationName = 'Ambulance Station';
+                } else if (game.placingAsset.name.includes('Patrol')) {
+                    requiredStationName = 'Police Station';
+                } else {
+                     alert(`Error: Unknown vehicle type for placement.`);
+                    game.funds += game.placingAsset.cost; // Refund if placement fails
+                    game.placingAsset = null;
+                    updateUI();
+                    return;
+                }
+                
+                // Find the nearest relevant station (building) to assign the vehicle
+                let homeStation = null;
+                let minDistance = Infinity;
+
+                game.ownedAssets.filter(a => a.type === 'building' && a.name === requiredStationName).forEach(station => {
+                    const stationLatLng = L.latLng(station.location);
+                    const dist = stationLatLng.distanceTo(latlng); 
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        homeStation = station;
+                    }
+                });
+                
+                if (homeStation) {
+                    homeStationId = homeStation.id;
+                    // *** FIX APPLIED: Snap the vehicle start location to the station's location ***
+                    startLocation = homeStation.location; 
+                    
+                } else {
+                    alert(`Error: Must place vehicle near a purchased ${requiredStationName}.`);
+                    game.funds += game.placingAsset.cost; // Refund if placement fails
+                    game.placingAsset = null;
+                    updateUI();
+                    return;
+                }
+            }
+
+            const newAsset = {
+                id: game.assetIdCounter++,
+                name: game.placingAsset.name,
+                type: game.placingAsset.type,
+                location: startLocation, // Use the snapped location for the asset data
+                status: 'Ready', 
+                homeStationId: homeStationId, 
+                marker: null
+            };
+            
+            // **Icon Creation Logic**
+            const assetInfo = ASSET_TYPES[newAsset.name];
+            
+            const customIcon = L.icon({
+                iconUrl: assetInfo.iconUrl,
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: assetInfo.iconSize,
+                iconAnchor: [assetInfo.iconSize[0] / 2, assetInfo.iconSize[1]], 
+                popupAnchor: [0, -assetInfo.iconSize[1]],
+                shadowSize: [41, 41]
+            });
+
+            // Create the marker using startLocation
+            const marker = L.marker(startLocation, { icon: customIcon }).addTo(mymap);
+            marker.bindPopup(`${newAsset.name} - Ready`);
+            
+            newAsset.marker = marker;
+            
+            game.ownedAssets.push(newAsset);
+            game.placingAsset = null;
+            updateUI();
+            saveGame(); // Save after placing an asset
+        }
+
+        // --- Rank System Logic ---
+        function checkRank() {
+            let newRank = game.currentRank;
+            for (let i = RANKS.length - 1; i >= 0; i--) {
+                if (game.missionsCompleted >= RANKS[i].missions) {
+                    newRank = RANKS[i].name;
+                    break;
+                }
+            }
+            if (newRank !== game.currentRank) {
+                game.currentRank = newRank;
+                alert(`⭐ PROMOTION! You've been promoted to ${game.currentRank}!`);
+            }
+        }
+
+        // --- Mission Spawning ---
+        function getRandomCoordinates() {
+            const buildings = game.ownedAssets.filter(a => a.type === 'building');
+
+            if (buildings.length === 0) {
+                // Fallback: Spawn randomly across Australia if no buildings are owned
+                const lat = -10 + Math.random() * (-40 - (-10));
+                const lon = 113 + Math.random() * (153 - 113);
+                return [lat, lon];
+            }
+
+            // Select a random owned building to anchor the mission location
+            const randomBuilding = buildings[Math.floor(Math.random() * buildings.length)];
+            const baseLat = randomBuilding.location.lat;
+            const baseLng = randomBuilding.location.lng;
+
+            // Define the local area radius (0.5 degrees, simulates town/local area)
+            const spawnRadius = 0.5; 
+
+            // Calculate random offset
+            const offsetLat = (Math.random() * spawnRadius) - (spawnRadius / 2);
+            const offsetLng = (Math.random() * spawnRadius) - (spawnRadius / 2);
+
+            const newLat = baseLat + offsetLat;
+            const newLng = baseLng + offsetLng;
+
+            return [newLat, newLng];
+        }
+
+        function generateMission() {
+            // Only generate a mission if there are less than 5 active and an asset is owned
+            if (game.activeMissions.length >= 5 || game.ownedAssets.length === 0) return;
+
+
+            const standardMissionTypes = [
+                "Car Accident", 
+                "Structure Fire", 
+                "Medical Emergency",
+                "Beach Rescue", 
+                "Lost Person in National Park",
+                "Minor Theft Incident", 
+                "Traffic Control Request",
+                "Suspicious Activity Report"
+            ];
+            
+            let missionType = standardMissionTypes[Math.floor(Math.random() * standardMissionTypes.length)];
+            let location; 
+            let reward = Math.floor(Math.random() * 500) + 250;
+            let iconColor = 'red';
+
+            // 20% chance for a high-value HVP Plantations mission
+            if (Math.random() < 0.20) {
+                const lat = HVP_AREA.minLat + Math.random() * (HVP_AREA.maxLat - HVP_AREA.minLat);
+                const lon = HVP_AREA.minLon + Math.random() * (HVP_AREA.maxLon - HVP_AREA.minLon);
+                
+                location = [lat, lon];
+                missionType = 'HVP Forest Fire (HIGH RISK)';
+                reward = 1500;
+                iconColor = 'black'; 
+            } else {
+                // Standard mission: Spawn near an owned building
+                location = getRandomCoordinates(); 
+            }
+            
+            // Set marker color based on mission type
+            if (missionType.includes('Medical') || missionType.includes('Rescue')) {
+                iconColor = 'blue';
+            } else if (missionType.includes('Accident')) {
+                iconColor = 'orange'; 
+            } else if (missionType.includes('Fire') || missionType.includes('Structure')) {
+                iconColor = 'red';
+            } else if (missionType.includes('Theft') || missionType.includes('Suspicious') || missionType.includes('Control')) {
+                 iconColor = 'black'; // Police missions
+            }
+            
+            const mission = {
+                id: game.missionIdCounter++, 
+                type: missionType,
+                location: location,
+                reward: reward,
+                marker: null
+            };
+            
+            // Mission markers remain the standard colored Leaflet pins for distinction
+            const marker = L.marker(mission.location, { icon: L.icon({
+                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${iconColor}.png`,
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })}).addTo(mymap);
+            
+            marker.bindPopup(`<b>Mission:</b> ${mission.type}<br>Reward: $${mission.reward.toLocaleString()}<br>`);
+            mission.marker = marker;
+            
+            // Click handler sets the pending mission
+            marker.on('click', () => {
+                // Check if already placing an asset (higher priority)
+                if (game.placingAsset) {
+                    alert('Finish placing your asset first.');
+                    return;
+                }
+                
+                // Set the pending mission and prompt user to select vehicle
+                game.pendingMission = mission;
+                alert(`Mission selected: ${mission.type}. Now, click an **appropriate Ready vehicle** in the "My Assets" list to dispatch.`);
+                updateUI(); // This redraws the sidebar to show "CLICK TO DISPATCH"
+            });
+
+            game.activeMissions.push(mission);
+            updateUI();
+            saveGame(); // Save after generating a mission
+        }
+
+        // --- Mission Completion ---
+        function completeMission(mission, vehicle) {
+            let reward = mission.reward;
+            
+            // 1. Apply Double Money Bonus
+            if (IS_DOUBLE_MONEY_ACTIVE) {
+                reward *= 2;
+                alert(`BONUS: Reward doubled! ${vehicle.name} successfully handled ${mission.type} and earned $${reward.toLocaleString()}.`);
+            } else {
+                alert(`${vehicle.name} successfully handled ${mission.type} and earned $${reward.toLocaleString()}.`);
+            }
+            
+            // 2. Update Game State
+            game.funds += reward;
+            game.missionsCompleted++;
+            checkRank(); 
+            
+            // 3. Battle Pass XP Gain & Challenge Update
+            gainBattlePassXP(10); // Grant 10 XP per mission completion
+            updateChallenges(mission.type, vehicle.homeStationId); 
+            
+            // 4. Clean up Mission
+            if (mission.marker && mymap.hasLayer(mission.marker)) {
+                mymap.removeLayer(mission.marker);
+            }
+            game.activeMissions = game.activeMissions.filter(m => m.id !== mission.id); 
+            
+            // Save state immediately after mission completion
+            saveGame(); 
+        }
+
+        // --- Battle Pass Logic ---
+        function gainBattlePassXP(xpAmount) {
+            let bp = game.battlePass;
+
+            if (bp.level >= bp.maxLevel) return;
+
+            bp.xp += xpAmount;
+
+            // Check for level ups
+            while (bp.xp >= bp.xpToNextLevel && bp.level < bp.maxLevel) {
+                bp.xp -= bp.xpToNextLevel; 
+                bp.level++;
+                
+                // Dynamic XP Scaling (increase XP required by 20% each level)
+                if (bp.level < bp.maxLevel) {
+                    bp.xpToNextLevel = Math.round(bp.xpToNextLevel * 1.2);
+                } else {
+                    bp.xpToNextLevel = Infinity; // Max level reached
+                }
+                
+                alert(`🎉 Battle Pass Level Up! You reached Level ${bp.level}!`);
+            }
+            updateUI();
+        }
+
+        function claimReward(level) {
+            const bp = game.battlePass;
+            const rewardItem = BATTLE_PASS_REWARDS.find(r => r.level === level);
+
+            if (!rewardItem || level > bp.level || bp.rewardsClaimed.includes(level)) {
+                alert("Cannot claim this reward yet or it is already claimed.");
+                return;
+            }
+
+            if (rewardItem.reward.type === 'funds') {
+                game.funds += rewardItem.reward.amount;
+                alert(`Claimed Level ${level} reward: Received $${rewardItem.reward.amount.toLocaleString()} Funds!`);
+            } 
+            // Add logic for other reward types here
+
+            bp.rewardsClaimed.push(level);
+            updateUI();
+            saveGame(); 
+        }
+        
+        // --- Asset Selling / Refund Logic (NEW) ---
+
+        function selectAssetToSell(asset, refundAmount) {
+            if (asset.id === (selectedAssetToSell ? selectedAssetToSell.id : null)) {
+                // Deselect if already selected
+                selectedAssetToSell = null;
+            } else {
+                // Select the new asset
+                selectedAssetToSell = asset;
+                selectedAssetToSell.refund = refundAmount; 
+            }
+            updateUI(); 
+        }
+
+        function sellSelectedAsset() {
+            if (!selectedAssetToSell) {
+                alert("Please select an asset to sell first.");
+                return;
+            }
+            
+            if (selectedAssetToSell.status !== 'Ready' && selectedAssetToSell.type === 'vehicle') {
+                alert(`${selectedAssetToSell.name} must be **Ready** at its base before it can be sold.`);
+                return;
+            }
+
+            const confirmSale = confirm(`Are you sure you want to sell the ${selectedAssetToSell.name} (ID: ${selectedAssetToSell.id}) for a refund of $${selectedAssetToSell.refund.toLocaleString()}?`);
+            
+            if (confirmSale) {
+                // 1. Process Refund
+                game.funds += selectedAssetToSell.refund;
+                
+                // 2. Remove Marker from Map
+                if (selectedAssetToSell.marker && mymap.hasLayer(selectedAssetToSell.marker)) {
+                    mymap.removeLayer(selectedAssetToSell.marker);
+                }
+
+                // 3. Remove Asset from Game State
+                game.ownedAssets = game.ownedAssets.filter(a => a.id !== selectedAssetToSell.id);
+
+                // 4. If a Station was sold, unassign all vehicles linked to it.
+                if (selectedAssetToSell.type === 'building') {
+                    game.ownedAssets.forEach(asset => {
+                        if (asset.type === 'vehicle' && asset.homeStationId === selectedAssetToSell.id) {
+                            asset.homeStationId = null;
+                            asset.status = 'No Base';
+                            asset.marker.setPopupContent(`${asset.name} - No Base (Requires Re-assignment)`);
+                            alert(`WARNING: ${asset.name} (ID: ${asset.id}) lost its base and must be sold or reassigned!`);
+                        }
+                    });
+                }
+                
+                // 5. Cleanup
+                alert(`Sale complete! You received $${selectedAssetToSell.refund.toLocaleString()}.`);
+                selectedAssetToSell = null;
+                updateUI();
+                saveGame();
+            }
+        }
+
+        // --- Challenge Logic (Unchanged) ---
+        function resetDailyChallenges() {
+            const today = new Date().toDateString();
+            const lastResetDate = new Date(game.battlePass.lastChallengeReset).toDateString();
+            
+            // Check if a reset is needed (once per day)
+            if (today !== lastResetDate) {
+                game.battlePass.activeChallenges = [];
+                game.battlePass.usedStationsToday = []; // Reset stations used daily
+                
+                // Select 3 unique random challenges
+                const pool = [...CHALLENGE_TEMPLATES];
+                for (let i = 0; i < 3 && pool.length > 0; i++) {
+                    const randomIndex = Math.floor(Math.random() * pool.length);
+                    const template = pool.splice(randomIndex, 1)[0];
+                    
+                    game.battlePass.activeChallenges.push({
+                        ...template,
+                        progress: 0,
+                        completed: false
+                    });
+                }
+                
+                game.battlePass.lastChallengeReset = Date.now();
+                console.log('Daily challenges have been reset!');
+                updateUI();
+            }
+        }
+
+        function updateChallenges(missionType, dispatchedStationId) {
+            let challengesUpdated = false;
+
+            game.battlePass.activeChallenges.forEach(challenge => {
+                if (challenge.completed) return;
+
+                // 1. Check specific mission type completion
+                if (challenge.type === 'fire_mission' && (missionType.includes('Fire') || missionType.includes('Structure'))) {
+                    challenge.progress += 1;
+                    challengesUpdated = true;
+                } else if (challenge.type === 'hvp_mission' && missionType.includes('HVP')) {
+                    challenge.progress += 1;
+                    challengesUpdated = true;
+                } 
+                
+                // 2. Check total mission count
+                else if (challenge.type === 'mission_count') {
+                    challenge.progress += 1;
+                    challengesUpdated = true;
+                }
+                
+                // 3. Check if completed
+                if (!challenge.completed && challenge.progress >= challenge.target) {
+                    challenge.completed = true;
+                    alert(`⭐ Challenge Complete! Earned ${challenge.xpReward} XP!`);
+                    gainBattlePassXP(challenge.xpReward); // Grant XP reward
+                    challengesUpdated = true;
+                }
+            });
+            
+            // 4. Check dispatch station count 
+            const stationChallenge = game.battlePass.activeChallenges.find(c => c.type === 'station_count');
+            if (stationChallenge && !stationChallenge.completed) {
+                if (dispatchedStationId && !game.battlePass.usedStationsToday.includes(dispatchedStationId)) {
+                    game.battlePass.usedStationsToday.push(dispatchedStationId);
+                    challengesUpdated = true;
+                }
+                
+                stationChallenge.progress = game.battlePass.usedStationsToday.length;
+                
+                if (!stationChallenge.completed && stationChallenge.progress >= stationChallenge.target) {
+                    stationChallenge.completed = true;
+                    alert(`⭐ Challenge Complete! Earned ${stationChallenge.xpReward} XP!`);
+                    gainBattlePassXP(stationChallenge.xpReward);
+                    challengesUpdated = true;
+                }
+            }
+
+
+            if (challengesUpdated) {
+                updateUI();
+                saveGame(); // Save after challenge progress/completion
+            }
+        }
+        
+        // --- Timer Logic (DOUBLE MONEY EVENT & CHALLENGE TIMER - Unchanged) ---
+        
+        function updateDoubleMoneyTimer() {
+            const now = Date.now();
+            const timeLeftMS = DOUBLE_MONEY_END_TIME - now; 
+            const alertElement = document.getElementById('double-money-alert');
+            const timerElement = document.getElementById('double-money-timer');
+
+            if (timeLeftMS <= 0) {
+                if (IS_DOUBLE_MONEY_ACTIVE) {
+                    localStorage.setItem('lastDoubleMoneyEndTime', now.toString()); 
+                }
+                
+                IS_DOUBLE_MONEY_ACTIVE = false;
+                if (alertElement) {
+                    alertElement.style.display = 'none'; 
+                }
+                if (timerElement) {
+                     timerElement.innerText = '';
+                }
+                return;
+            }
+
+            // Event is active
+            IS_DOUBLE_MONEY_ACTIVE = true;
+            if (alertElement) {
+                alertElement.style.display = 'block';
+            }
+
+            const minutes = Math.floor(timeLeftMS / (1000 * 60));
+            const seconds = Math.floor((timeLeftMS % (1000 * 60)) / 1000);
+
+            if (timerElement) {
+                timerElement.innerText = `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}]`;
+            }
+        }
+
+
+        function updateResetTimer() {
+            const now = new Date();
+            const lastReset = new Date(game.battlePass.lastChallengeReset);
+            
+            // Calculate the time until midnight (next reset)
+            const nextReset = new Date(lastReset);
+            nextReset.setDate(lastReset.getDate() + 1);
+            nextReset.setHours(0, 0, 0, 0); // Set to midnight of the next day
+
+            const timeLeftMS = nextReset.getTime() - now.getTime(); 
+            
+            if (timeLeftMS < 0 || isNaN(timeLeftMS)) {
+                // Time has passed or error, reset now
+                resetDailyChallenges();
+                return; 
+            }
+
+            const hours = Math.floor(timeLeftMS / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeftMS % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeftMS % (1000 * 60)) / 1000);
+
+            const timerElement = document.getElementById('challenge-reset-timer');
+            if (timerElement) {
+                timerElement.innerText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // --- Auto Save/Load System (UPDATED to include BONUS KEY) ---
+        function saveGame() {
+            const savedState = {
+                funds: game.funds,
+                missionsCompleted: game.missionsCompleted,
+                currentRank: game.currentRank,
+                battlePass: game.battlePass, 
+                doubleMoneyEndTime: DOUBLE_MONEY_END_TIME, 
+                
+                // 1. Save Owned Assets (Only data, not the marker object)
+                ownedAssets: game.ownedAssets.map(asset => ({
+                    id: asset.id,
+                    name: asset.name,
+                    type: asset.type,
+                    location: asset.location,
+                    status: asset.status, 
+                    homeStationId: asset.homeStationId 
+                })),
+
+                // 2. Save Active Missions (Only data, not the marker object)
+                activeMissions: game.activeMissions.map(mission => ({
+                    id: mission.id,
+                    type: mission.type,
+                    location: mission.location,
+                    reward: mission.reward
+                })),
+                
+                // 3. Save the mission ID counter to prevent ID conflicts
+                missionIdCounter: game.missionIdCounter
+            };
+            localStorage.setItem('dispatchSimulatorState', JSON.stringify(savedState));
+            console.log('Game saved automatically!');
+        }
+
+        function loadGame() {
+            const savedStateString = localStorage.getItem('dispatchSimulatorState');
+            if (savedStateString) {
+                const savedState = JSON.parse(savedStateString);
+                
+                // 1. Load Core Stats
+                game.funds = savedState.funds || 10000;
+                game.missionsCompleted = savedState.missionsCompleted || 0;
+                game.currentRank = savedState.currentRank || 'Trainee'; 
+                DOUBLE_MONEY_END_TIME = savedState.doubleMoneyEndTime || 0; 
+
+                // 2. Load Counters (Crucial for preventing duplicates)
+                game.assetIdCounter = (savedState.ownedAssets && savedState.ownedAssets.length) ? 
+                                       Math.max(...savedState.ownedAssets.map(a => a.id)) + 1 : 0; 
+                
+                // Load Mission Counter
+                game.missionIdCounter = savedState.missionIdCounter || 0; 
+
+                // 3. Load Battle Pass state
+                if (savedState.battlePass) {
+                    game.battlePass = savedState.battlePass;
+                    if (!game.battlePass.activeChallenges) game.battlePass.activeChallenges = [];
+                    if (!game.battlePass.lastChallengeReset) game.battlePass.lastChallengeReset = 0;
+                    if (!game.battlePass.usedStationsToday) game.battlePass.usedStationsToday = [];
+                }
+
+                // 4. Rebuild Owned Assets (Stations and Vehicles)
+                game.ownedAssets = []; 
+                if (savedState.ownedAssets) {
+                    savedState.ownedAssets.forEach(assetData => {
+                        const latlng = assetData.location;
+                        const assetInfo = ASSET_TYPES[assetData.name];
+                        if (!assetInfo) return; 
+                        
+                        // **UPDATED: Custom Icon Creation Logic for Load**
+                        const customIcon = L.icon({
+                            iconUrl: assetInfo.iconUrl,
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: assetInfo.iconSize,
+                            iconAnchor: [assetInfo.iconSize[0] / 2, assetInfo.iconSize[1]],
+                            popupAnchor: [0, -assetInfo.iconSize[1]],
+                            shadowSize: [41, 41]
+                        });
+                        
+                        const marker = L.marker(latlng, { icon: customIcon }).addTo(mymap);
+                        
+                        const initialStatus = assetData.status || 'Ready'; 
+                        marker.bindPopup(`${assetData.name} - ${initialStatus}`);
+                        
+                        const newAsset = {
+                            id: assetData.id,
+                            name: assetData.name,
+                            type: assetData.type,
+                            location: latlng,
+                            status: initialStatus, 
+                            homeStationId: assetData.homeStationId || null, 
+                            marker: marker // RECREATED MARKER ATTACHED
+                        };
+                        game.ownedAssets.push(newAsset);
+                    });
+                }
+                
+                // 5. Rebuild Active Missions (using colored markers)
+                game.activeMissions = [];
+                if (savedState.activeMissions) {
+                    savedState.activeMissions.forEach(missionData => {
+                        let iconColor = 'red';
+                        if (missionData.type.includes('Medical') || missionData.type.includes('Rescue')) {
+                            iconColor = 'blue';
+                        } else if (missionData.type.includes('Accident')) {
+                            iconColor = 'orange'; 
+                        } else if (missionData.type.includes('HVP') || missionData.type.includes('Theft') || missionData.type.includes('Suspicious') || missionData.type.includes('Control')) {
+                            iconColor = 'black'; 
+                        }
+                        
+                        // Recreate Icon (standard colored Leaflet pin)
+                        const marker = L.marker(missionData.location, { icon: L.icon({
+                            iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${iconColor}.png`,
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        })}).addTo(mymap);
+
+                        marker.bindPopup(`<b>Mission:</b> ${missionData.type}<br>Reward: $${missionData.reward.toLocaleString()}<br>`);
+                        
+                        // Attach click handler to RECREATED marker (essential)
+                        marker.on('click', () => {
+                            if (game.placingAsset) {
+                                alert('Finish placing your asset first.');
+                                return;
+                            }
+                            game.pendingMission = missionData;
+                            alert(`Mission selected: ${missionData.type}. Now, click an **appropriate Ready vehicle** in the "My Assets" list to dispatch.`);
+                            updateUI(); 
+                        });
+
+                        const newMission = {
+                            ...missionData,
+                            marker: marker // RECREATED MARKER ATTACHED
+                        };
+
+                        game.activeMissions.push(newMission);
+                    });
+                }
+
+                console.log('Game loaded!');
+            } else {
+                console.log('No saved game found. Starting a new game.');
+            }
+        }
+
+        // --- Main Event Listeners and Timers ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGame();
+            loadBonusLogic(); // <-- NEW: Check and display the bonus on load
+            
+            // CONSTANT: One hour in milliseconds (3,600,000 ms)
+            const ONE_HOUR_MS = 60 * 60 * 1000;
+            
+            // CRITICAL RESTART LOGIC: Check if event is running, or if cooldown is needed
+            if (DOUBLE_MONEY_END_TIME === 0 || DOUBLE_MONEY_END_TIME <= Date.now()) {
+                 // The event is not currently running. Check if a cooldown is required.
+                 const lastEndTime = localStorage.getItem('lastDoubleMoneyEndTime');
+                 
+                 // If there's no record OR the time since the last event ended is more than 1 hour
+                 if (!lastEndTime || (Date.now() - parseInt(lastEndTime) > ONE_HOUR_MS)) {
+                     // Start a fresh 4-minute event
+                     DOUBLE_MONEY_END_TIME = Date.now() + (4 * 60 * 1000); 
+                     localStorage.removeItem('lastDoubleMoneyEndTime'); // Clear the cooldown timestamp for the new run
+                     console.log('Starting new 4-minute Double Money Event.');
+                 } else {
+                     // Event expired, and we are in the cooldown window (prevent restart)
+                     DOUBLE_MONEY_END_TIME = 0; // Ensures updateDoubleMoneyTimer keeps it deactivated
+                     IS_DOUBLE_MONEY_ACTIVE = false;
+                     console.log('Double Money Event is on cooldown (1 hour).');
+                 }
+            } else {
+                // Event is running, continuing from save.
+                console.log('Continuing Double Money Event from save.');
+            }
+            
+            // Start the Double Money timer update loop
+            setInterval(updateDoubleMoneyTimer, 1000); 
+
+            // Start daily challenges timers
+            resetDailyChallenges(); // Initial check/reset for challenges
+            setInterval(updateResetTimer, 1000); // Start challenge timer display
+            
+            updateUI(); // Final UI update
+        });
+
+        mymap.on('click', (e) => {
+            if (game.placingAsset) {
+                placeAssetOnMap(e.latlng);
+            }
+            // If user clicks map but not a mission, clear the pending mission
+            else if (game.pendingMission) {
+                game.pendingMission = null;
+                alert('Dispatch selection cancelled.');
+                updateUI();
+            }
+        });
+
+        // Generate missions every minute (60000ms)
+        setInterval(generateMission, 60000); 
+
+        // Auto-save every 30 seconds (30000ms)
+        setInterval(saveGame, 30000);
+    </script>
+</body>
+</html>
